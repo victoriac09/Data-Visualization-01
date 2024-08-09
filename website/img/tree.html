@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>tree.html</title>
+
+    <script type="text/javascript" src="http://d3js.org/d3.v5.min.js"></script>
+
+    <meta name="keywords" content="keyword1,keyword2,keyword3" />
+    <meta name="description" content="this is my page" />
+    <meta name="content-type" content="text/html; charset=GBK" />
+
+    <style>
+      body {
+        margin: 3;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div style="height: 100vh" id="tree"></div>
+    <ul style="position: absolute; top: 0; left: 0; cursor: pointer">
+      <li onclick="onMagnifySVG()">Zoom in</li> 
+      <li onclick="onShrinkSVG()">Zoom out</li>
+      <li onclick="onResetSVG()">Reset</li>
+    </ul>
+
+    <script>
+      //create dataset
+      var dataset = {
+        name: "Restaurants",
+        children: [
+        {
+            name: "Special",
+            children: [
+              {
+                name: "Seafood",
+              },
+              {
+                name: "Vegetarian",
+              },
+              {
+                name: "Vegen",
+              },
+              {
+                name: "Salad",
+              },
+              {
+                name: "Gluten-Free",
+              },
+            ],
+          },
+          {
+            name: "Region ",
+            children: [
+              {
+                name: "American",
+                children: [
+                  {
+                    name: "Southern",
+                  },
+                  {
+                    name: "Barbeque",
+                  },
+                  {
+                    name: "Fast Food",
+                    children: [
+                      {
+                        name: "Burgers",
+                      },
+                      {
+                        name: "Chicken Wings",
+                      },
+                      {
+                        name: "Chicken Shop",
+                      },
+                      {
+                        name: "Hot Dogs",
+                      },
+                      {
+                        name: "Sandwiches",
+                      },
+                    ],
+                  },
+                  {
+                    name: "Diners",
+                  },
+                  {
+                    name: "Dells",
+                  },
+                  {
+                    name: "Dells",
+                  },
+                  {
+                    name: "American (Traditional)"
+                  },
+                  {
+                    name: "American (New)"
+                  },
+                  {
+                    name: "Soup"
+                  },
+                  {
+                    name: "Comfort Food"
+                  },
+                  {
+                    name: "Breakfast & Brunch"
+                  },
+                ],
+              },
+              {
+                name: "Asian",
+              },
+              {
+                name: "European",
+              },
+              {
+                name: "Latin American",
+              },
+            ],
+          },
+          {
+            name: "Format ",
+            children: [
+              {
+                name: "Bars",
+                children: [
+                  {
+                    name: "Beer",
+                  },
+                  {
+                    name: "Beer Bar",
+                  },
+                  {
+                    name: "Cocktall Bars",
+                  },
+                  {
+                    name: "Pubs",
+                  },
+                  {
+                    name: "Sports Bars",
+                  },
+                  {
+                    name: "Lounges",
+                  },
+                  {
+                    name: "Wine Bars",
+                  },
+                  {
+                    name: "Wine & Spirits",
+                  },
+                ],
+              },
+              {
+                name: "Food Trucks",
+              },
+              {
+                name: "Food Delivery",
+              },
+              {
+                name: "Food Stores",
+              },
+              {
+                name: "Juice Bars",
+              },
+              {
+                name: "Desserts",
+              },
+              {
+                name: "Events"
+              },
+            ],
+          },
+          
+          
+        ],
+      };
+
+      // Create Random number, used to bind IDs
+      function uuid() {
+        function s4() {
+          return Math.floor((1 + Math.random()) * 0x10000)
+            .toString(16)
+            .substring(1);
+        }
+
+        return (
+          s4() +
+          s4() +
+          "-" +
+          s4() +
+          "-" +
+          s4() +
+          "-" +
+          s4() +
+          "-" +
+          s4() +
+          s4() +
+          s4()
+        );
+      }
+      /* g: Container, root: d3 converted dataset data, zoomHandle: scaler */
+      var g = null,
+        root,
+        zoomHandler,
+        svg,
+        width = document.body.clientWidth,
+        height = document.body.clientHeight;
+
+      // trasition duration
+      var duration = 750;
+
+      /* initialization */
+      function init() {
+        svg = d3
+          .select("#tree")
+          .append("svg")
+          .attr("width", width)
+          .attr("height", height)
+          .attr("font-size", "16px");
+
+        g = svg
+          .append("g")
+          .attr(
+            "transform",
+            `translate(${width / 2 - 200},${height / 2}) scale(1)`
+          );
+
+        //scaler
+        zoomHandler = d3
+          .zoom()
+          .scaleExtent([0.8, 2]) // zoom range
+          .on("zoom", () => {
+            svg.select("g").attr("transform", d3.event.transform);
+          });
+        //call scaler
+        svg
+          .call(zoomHandler)
+          .call(zoomHandler.translateBy, width / 2 - 200, height / 2) //Initialize the translation position
+          .on("dblclick.zoom", null); //Disable double click zoom
+
+        dealData();
+      }
+
+      /* Deal with data */
+      function dealData() {
+        //Convert to Hierarchical Data
+        root = d3.hierarchy(dataset);
+        /* Add the _children attribute and bind the unique identifier to realize the click shrink and expand function */
+        root.descendants().forEach((d) => {
+          d._children = d.children;
+          d.id = uuid();
+        });
+
+        update(root);
+      }
+
+      /* Plot */
+      function update(source) {
+        /* Every update needs to re-layout, in order to adjust the spacing between nodes when expanding and shrinking */
+        d3
+          .tree()
+          .nodeSize([30, 100])
+          .separation((a, b) => {
+            //Adjust the gap between nodes
+            let result =
+              a.parent === b.parent && !a.children && !b.children ? 1 : 2;
+            if (result > 1) {
+              let length = 0;
+              length = a.children ? length + a.children.length : length;
+              length = b.children ? length + b.children.length : length;
+              result = length / 2 + 0.5;
+            }
+            return result;
+          })(root);
+        /* Get page nodes and compare with nodes in data */
+        const node = g
+          .selectAll("g.gNode")
+          .data(root.descendants(), (d) => d.id);
+
+        /* Nodes to be added */
+        const nodeEnter = node
+          .enter()
+          .append("g")
+          .attr("id", (d) => `g${d.id}`)
+          .attr("class", "gNode")
+          .attr(
+            "transform",
+            () => `translate(${source.y0 || 0},${source.x0 || 0})`
+          )
+          .attr("fill-opacity", 0)
+          .attr("stroke-opacity", 0)
+          .on("click", (d) => {
+            clickNode(d);
+          });
+
+        //Add elements (circle and description text) to the node
+        nodeEnter.each((d) => {
+          drawText(d.id);
+          //when it has child nodes
+          if (d._children) {
+            drawCircle(d.id);
+          }
+        });
+
+        /* remove redundant nodes */
+        node
+          .exit()
+          .transition()
+          .duration(duration)
+          .remove()
+          .attr("transform", () => `translate(${source.y},${source.x})`)
+          .attr("fill-opacity", 0)
+          .attr("stroke-opacity", 0);
+
+        /* update node */
+        node
+          .merge(nodeEnter)
+          .transition()
+          .duration(duration)
+          .attr("transform", (d) => `translate(${d.y - 16},${d.x})`)
+          .attr("fill-opacity", 1)
+          .attr("stroke-opacity", 1);
+
+        /* Get the page lines and compare to the lines in the data */
+        const link = g
+          .selectAll("path.gNode")
+          .data(root.links(), (d) => d.target.id);
+
+        /* Insert in front of the g to prevent the connecting line from blocking the content of the G node */
+        const linkEnter = link
+          .enter()
+          .insert("path", "g")
+          .attr("class", "gNode")
+          .attr("d", () => {
+            const o = { x: source.x0 || 0, y: source.y0 || 0 };
+            return diagonal({ source: o, target: o });
+          })
+          .attr("fill", "none")
+          .attr("stroke-width", 1)
+          .attr("stroke", "#dddddd");
+        /* remove redundant lines */
+        link
+          .exit()
+          .transition()
+          .duration(duration)
+          .remove()
+          .attr("d", () => {
+            const o = { x: source.x, y: source.y };
+            return diagonal({ source: o, target: o });
+          });
+
+        /* update lines */
+        link
+          .merge(linkEnter)
+          .transition()
+          .duration(duration)
+          .attr("d", diagonal);
+
+        /* increase x0, y0 to record the last position of the same node */
+        root.eachBefore((d) => {
+          d.x0 = d.x;
+          d.y0 = d.y;
+        });
+
+        console.log(root);
+      }
+
+      //Click node
+      function clickNode(d) {
+        //if no node
+        if (!d.children && !d._children) return;
+        d.children = d.children ? null : d._children;
+        // Change the vertical line property in the circle to make it appear
+        d3.select(`#g${d.id} .node-circle .node-circle-vertical`)
+          .transition()
+          .duration(duration)
+          .attr("stroke-width", d.children ? 0 : 1);
+        update(d);
+      }
+
+      //draw text
+      function drawText(id) {
+        d3.select(`#g${id}`)
+          .append("text")
+          .attr("x", (d) => (d.children ? -(8 + d.data.name.length * 16) : 8))
+          .attr("y", 5)
+          .text((d) => d.data.name);
+      }
+
+      //draw circle
+      function drawCircle(id) {
+        let gMark = d3
+          .select(`#g${id}`)
+          .append("g")
+          .attr("class", "node-circle")
+          .attr("stroke", "red")
+          .attr("stroke-width", 1);
+
+        //draw circle
+        gMark
+          .append("circle")
+          .attr("fill", "none")
+          .attr("r", 6)
+          .attr("fill", "#ffffff");
+
+        const padding = 4;
+
+        //add horizontal line
+        gMark.append("path").attr("d", `m -${padding} 0 l ${2.8 * padding} 0`);
+
+        //add vertical line
+        gMark
+          .append("path")
+          .attr("d", `m 0 -${padding} l 0 ${2 * padding}`)
+          .attr("stroke-width", 0)
+          .attr("class", "node-circle-vertical");
+      }
+
+      //add connecting lines
+      function diagonal({ source, target }) {
+        let s = source,
+          d = target;
+        return `M ${s.y} ${s.x}
+                  L ${(s.y + d.y) / 1.8} ${s.x},
+                  L ${(s.y + d.y) / 1.8} ${d.x},
+                  ${d.y} ${d.x}`;
+      }
+
+      //zoom in 
+      function onMagnifySVG() {
+        zoomHandler.scaleBy(svg, 1.5);
+      }
+
+      //zoom out
+      function onShrinkSVG() {
+        zoomHandler.scaleBy(svg, 0.5);
+      }
+
+      //reset
+      function onResetSVG() {
+        d3.select("svg").remove();
+        init();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
+
