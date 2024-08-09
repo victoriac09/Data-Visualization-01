@@ -1,0 +1,19 @@
+As the json file is too big to upload, we put the file link here.
+
+Data source
+
+You can download the dataset in this website: https://www.yelp.com/dataset/download
+The Yelp dataset (https://www.yelp.com/dataset/documentation/main) is a rich and extensive collection of data provided by Yelp, a popular online platform for discovering and reviewing local businesses. The dataset contains information about businesses, users, reviews, tips, and check-ins from Yelp's platform. Specifically, it includes:
+
+
+Business Data: Basic information about local businesses such as name, address, city, state, postal code, latitude, longitude, stars, review count, and categories.
+
+
+Review Data: Detailed reviews of businesses, consisting of user_id, business_id, stars, date, text, useful, funny, and cool.
+
+Tip Data: Short tips provided by users for businesses, containing user_id, business_id, text, date, and compliment_count.
+
+
+Photo Data: Restaurants' Photos 
+
+
