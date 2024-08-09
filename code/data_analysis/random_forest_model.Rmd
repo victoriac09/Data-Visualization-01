@@ -1,0 +1,260 @@
+---
+title: "Random Forest model"
+author: "Zijing Cheng zc233"
+date: "2023-05-05"
+output: html_document
+---
+# Classification Model of Business Status
+
+
+```{r}
+# Set random seed for reproducibility
+set.seed(123)
+
+# Read the CSV file containing the data
+m1 = read.csv("../../data/clean_data/Business_region_4V.csv")
+
+# Prepare the data for modeling by selecting specific columns
+m1 = m1 %>% select(business_id, Business.Status, stars, review_count, compliment_count, Region.Category, Res_Mov_reg_count, Res_Beach_reg_count, Res_Museum_reg_count, Res_Shopping_reg_count)
+
+# Create binary factors for each region category
+m1 = m1 %>% mutate(mov = as.factor(ifelse(Res_Mov_reg_count >= 1, 1, 0)), beach = as.factor(ifelse(Res_Beach_reg_count >= 1, 1, 0)), museum = as.factor(ifelse(Res_Museum_reg_count >= 1, 1, 0)), shopping = as.factor(ifelse(Res_Shopping_reg_count >= 1, 1, 0)))
+
+# Convert Business.Status and Region.Category to factors
+m1 = m1 %>% mutate(Business.Status = as.factor(Business.Status), region = as.factor(Region.Category))
+
+# Create training and testing datasets using 80% of data for training
+train_index <- createDataPartition(m1$region, p = 0.8, list = FALSE)
+train_data <- m1[train_index, ]
+train_data = train_data %>% select(-business_id)
+test_data <- m1[-train_index, ]
+test_data = test_data %>% select(-business_id)
+
+# Train the random forest model
+model <- randomForest(Business.Status ~ stars + review_count + compliment_count + region + mov + beach + museum + shopping, data = train_data, ntree = 500, mtry = 3, importance = TRUE)
+
+# Make predictions on the test data
+predictions <- predict(model, newdata = test_data)
+
+# Create a confusion matrix with actual and predicted values
+cfm_bag <- tibble("Actual" = test_data$Business.Status,
+                  "Predicted" = predictions)
+cfm_bag <- table(cfm_bag)
+cfm_bag <- as_tibble(cfm_bag)
+
+# Plot the confusion matrix
+plot_confusion_matrix(cfm_bag, 
+                      target_col = "Actual", 
+                      prediction_col = "Predicted",
+                      counts_col = "n")
+
+# Plot variable importance
+varImpPlot(model)
+
+# Compute the confusion matrix and overall accuracy
+confusion_matrix <- confusionMatrix(predictions, test_data$Business.Status)
+accuracy <- confusion_matrix$overall["Accuracy"]
+accuracy
+
+```
+
+```{r}
+# generate a correlation matrix
+m11 = m1 %>%select(Business.Status,stars,review_count,compliment_count,region,mov,beach,museum,shopping)
+m11 = m11 %>% mutate(Business.Status=as.numeric(Business.Status), region = as.numeric(region),mov =as.numeric(mov),beach = as.numeric(beach),museum=as.numeric(museum),shopping=as.numeric(shopping) )
+cor_mat = cor(m11)
+write.csv(cor_mat, "correlation_matrix.csv")
+```
+
+
+```{r}
+# Set random seed for reproducibility
+set.seed(123)
+
+# Read the CSV file containing the data
+m1 = read.csv("../../data/clean_data/Business_format_4V.csv")
+
+# Prepare the data for modeling by selecting specific columns
+m1 = m1 %>% select(business_id, Business.Status, stars, review_count, compliment_count, Format.Category, Res_Mov_reg_count, Res_Beach_reg_count, Res_Museum_reg_count, Res_Shopping_reg_count)
+
+# Create binary factors for each format category
+m1 = m1 %>% mutate(mov = as.factor(ifelse(Res_Mov_reg_count >= 1, 1, 0)), beach = as.factor(ifelse(Res_Beach_reg_count >= 1, 1, 0)), museum = as.factor(ifelse(Res_Museum_reg_count >= 1, 1, 0)), shopping = as.factor(ifelse(Res_Shopping_reg_count >= 1, 1, 0)))
+
+# Convert Business.Status and Format.Category to factors
+m1 = m1 %>% mutate(Business.Status = as.factor(Business.Status), format = as.factor(Format.Category))
+
+# Create training and testing datasets using 80% of data for training
+train_index <- createDataPartition(m1$format, p = 0.8, list = FALSE)
+train_data <- m1[train_index, ]
+train_data = train_data %>% select(-business_id)
+test_data <- m1[-train_index, ]
+test_data = test_data %>% select(-business_id)
+
+# Train the random forest model
+model <- randomForest(Business.Status ~ stars + review_count + compliment_count + format + mov + beach + museum + shopping, data = train_data, ntree = 500, mtry = 3, importance = TRUE)
+
+# Make predictions on the test data
+predictions <- predict(model, newdata = test_data)
+
+# Create a confusion matrix with actual and predicted values
+cfm_bag <- tibble("Actual" = test_data$Business.Status,
+                  "Predicted" = predictions)
+cfm_bag <- table(cfm_bag)
+cfm_bag <- as_tibble(cfm_bag)
+
+# Plot the confusion matrix
+plot_confusion_matrix(cfm_bag, 
+                      target_col = "Actual", 
+                      prediction_col = "Predicted",
+                      counts_col = "n")
+
+# Plot variable importance
+varImpPlot(model)
+
+# Compute the confusion matrix and overall accuracy
+confusion_matrix <- confusionMatrix(predictions, test_data$Business.Status)
+accuracy <- confusion_matrix$overall["Accuracy"]
+accuracy
+
+```
+
+```{r}
+# Set random seed for reproducibility
+set.seed(123)
+
+# Read the CSV file containing the data
+m1 = read.csv("../../data/clean_data/Business_special_4V.csv")
+
+# Prepare the data for modeling by selecting specific columns
+m1 = m1 %>% select(business_id, Business.Status, stars, review_count, compliment_count, Special.Category, Res_Mov_reg_count, Res_Beach_reg_count, Res_Museum_reg_count, Res_Shopping_reg_count)
+
+# Create binary factors for each special category
+m1 = m1 %>% mutate(mov = as.factor(ifelse(Res_Mov_reg_count >= 1, 1, 0)), beach = as.factor(ifelse(Res_Beach_reg_count >= 1, 1, 0)), museum = as.factor(ifelse(Res_Museum_reg_count >= 1, 1, 0)), shopping = as.factor(ifelse(Res_Shopping_reg_count >= 1, 1, 0)))
+
+# Convert Business.Status and Special.Category to factors
+m1 = m1 %>% mutate(Business.Status = as.factor(Business.Status), special = as.factor(Special.Category))
+
+# Create training and testing datasets using 80% of data for training
+train_index <- createDataPartition(m1$special, p = 0.8, list = FALSE)
+train_data <- m1[train_index, ]
+train_data = train_data %>% select(-business_id)
+test_data <- m1[-train_index, ]
+test_data = test_data %>% select(-business_id)
+
+# Train the random forest model
+model <- randomForest(Business.Status ~ stars + review_count + compliment_count + special + mov + beach + museum + shopping, data = train_data, ntree = 500, mtry = 3, importance = TRUE)
+
+# Make predictions on the test data
+predictions <- predict(model, newdata = test_data)
+
+# Create a confusion matrix with actual and predicted values
+cfm_bag <- tibble("Actual" = test_data$Business.Status,
+                  "Predicted" = predictions)
+cfm_bag <- table(cfm_bag)
+cfm_bag <- as_tibble(cfm_bag)
+
+# Plot the confusion matrix
+plot_confusion_matrix(cfm_bag, 
+                      target_col = "Actual", 
+                      prediction_col = "Predicted",
+                      counts_col = "n")
+
+# Plot variable importance
+varImpPlot(model)
+
+# Compute the confusion matrix and overall accuracy
+confusion_matrix <- confusionMatrix(predictions, test_data$Business.Status)
+accuracy <- confusion_matrix$overall["Accuracy"]
+accuracy
+
+# Plot variable importance using ggplot2
+ggplot2::ggplot(varImp(model))
+
+```
+
+
+```{r}
+# Load required libraries
+library(randomForest)
+library(caret)
+library(cvms)
+
+# Set random seed for reproducibility
+set.seed(123)
+
+# Prepare the data for modeling by selecting specific columns
+m1 = a %>% select(business_id, Business.Status, `Region Category`, stars, review_count, compliment_count, `Region Category`)
+
+# Convert Business.Status and Region Category to factors
+m1 = m1 %>% mutate(Business.Status = as.factor(Business.Status), region = as.factor(`Region Category`))
+
+# Create training and testing datasets using 80% of data for training
+train_index <- createDataPartition(m1$region, p = 0.8, list = FALSE)
+train_data <- m1[train_index, ]
+train_data = train_data %>% select(-business_id)
+test_data <- m1[-train_index, ]
+test_data = test_data %>% select(-business_id)
+
+# Train the random forest model
+model <- randomForest(Business.Status ~ region + stars + review_count + compliment_count, data = train_data, ntree = 500, mtry = 3, importance = TRUE)
+
+# Make predictions on the test data
+predictions <- predict(model, newdata = test_data)
+
+# Create a confusion matrix with actual and predicted values
+cfm_bag <- tibble("Actual" = test_data$Business.Status,
+                  "Predicted" = predictions)
+cfm_bag <- table(cfm_bag)
+cfm_bag <- as_tibble(cfm_bag)
+
+# Plot the confusion matrix
+plot_confusion_matrix(cfm_bag, 
+                      target_col = "Actual", 
+                      prediction_col = "Predicted",
+                      counts_col = "n")
+
+```
+
+
+```{r}
+# Load required libraries
+library(randomForest)
+library(caret)
+library(cvms)
+
+# Set random seed for reproducibility
+set.seed(123)
+
+# Prepare the data for modeling by selecting specific columns
+m2 = b %>% select(business_id, Business.Status, stars, review_count, compliment_count, `Format Category`)
+
+# Convert Business.Status and Format Category to factors
+m2 = m2 %>% mutate(Business.Status = as.factor(Business.Status), format = as.factor(`Format Category`))
+
+# Create training and testing datasets using 80% of data for training
+train_index <- createDataPartition(m2$format, p = 0.8, list = FALSE)
+train_data <- m2[train_index, ]
+train_data = train_data %>% select(-business_id)
+test_data <- m2[-train_index, ]
+test_data = test_data %>% select(-business_id)
+
+# Train the random forest model
+model <- randomForest(Business.Status ~ format + stars + review_count + compliment_count, data = train_data, ntree = 500, mtry = 3, importance = TRUE)
+
+# Make predictions on the test data
+predictions <- predict(model, newdata = test_data)
+
+# Create a confusion matrix with actual and predicted values
+cfm_bag <- tibble("Actual" = test_data$Business.Status,
+                  "Predicted" = predictions)
+cfm_bag <- table(cfm_bag)
+cfm_bag <- as_tibble(cfm_bag)
+
+# Plot the confusion matrix
+plot_confusion_matrix(cfm_bag, 
+                      target_col = "Actual", 
+                      prediction_col = "Predicted",
+                      counts_col = "n")
+
+```
+

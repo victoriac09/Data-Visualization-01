@@ -1,0 +1,385 @@
+---
+title: "Data_Clean_R"
+author: "Zijing Cheng zc233"
+date: "2023-04-22"
+
+output: html_document
+---
+
+## Data Processing with R
+
+```{r}
+# load the tidyverse library
+library(tidyverse)
+
+# read the business.csv file into a dataframe
+business = read.csv("../../data/clean_data/business.csv")
+
+# use mutate to create a new column called "City" based on the "City" column,
+# replacing any occurrences of "St. Petersburg" with "Saint Petersburg"
+business = business %>% 
+  mutate(City = ifelse(City == "St. Petersburg", "Saint Petersburg", City))
+
+```
+
+## Select cities with the top ten restaurants in each state
+```{r}
+# group business data by state and city, and summarize number of businesses
+business_top = business %>% 
+  group_by(State, City) %>% 
+  summarise(n = n())
+
+# group by state, calculate rank based on descending order of number of businesses, and filter top 10
+business_top = business_top %>% 
+  group_by(State) %>% 
+  mutate(rank = rank(-n)) %>% 
+  filter(rank <= 10)
+
+# add a new column indicating whether business is open or closed based on 'is_open' column
+business = business %>% 
+  mutate(`Business Status` = ifelse(is_open == 0, "Close", "Open"))
+
+```
+
+
+## Write the CSV
+```{r}
+write.csv(business_top,"data/clean_data/business_top.csv")
+write.csv(business,"data/clean_data/business.csv")
+```
+
+## Subset to the Florida dataset
+```{r}
+businessFL = business%>%filter(State == "FL")
+businessFL = businessFL[,-c(1:4,18)]
+summary(businessFL)
+```
+
+
+## Classified by restaurant region of categories
+Here, we divided it into American, Asian, European, Latin American
+```{r}
+# Define a function to categorize businesses based on a list of categories
+categorize_business <- function(data, category_list) {
+  categorized_data <- data.frame()
+  for (i in 1:nrow(data)) {
+    row <- data[i,]
+    if (sum(unlist(strsplit(row$categories, ", ")) %in% category_list) > 0) {
+      row <- row %>% mutate(`Region Category` = category_list[[1]])
+      categorized_data <- rbind(categorized_data, row)
+    }
+  }
+  return(categorized_data)
+}
+
+# Categorize businesses based on predefined categories
+businessFL1 = businessFL
+categories = list(
+  c('Southern','Barbeque','Fast Food','Diners','Dells','American(Traditional)','American(New)','Soup','Comfort Food','Breakfast & Brunch', 'Burgers','Hot Dogs','Chicken Wings','Chicken Shop','Fast Food',  'Sandwiches' ),
+  c('Asian Fusion','Chinese','Japanese','Sushi Bars','Thai','Vietnamese'),
+  c('Italian','Spanish','Steakhouses','Mediterranean'),
+  c('Latin American','Cuban','Mexican','Tex-Mex','Caribbean')
+)
+businessFL_American = categorize_business(businessFL1, categories[[1]])
+businessFL_Asian = categorize_business(businessFL1, categories[[2]])
+businessFL_European = categorize_business(businessFL1, categories[[3]])
+businessFL_Latin = categorize_business(businessFL1, categories[[4]])
+
+# Combine categorized data into one dataframe
+a = rbind(businessFL_Latin, businessFL_European)
+a = rbind(a, businessFL_Asian)
+a = rbind(a, businessFL_American)
+
+# Remove duplicates based on business_id
+a = a %>% group_by(business_id) %>% filter (!duplicated(business_id))
+
+# Count number of businesses in each region category
+a %>% group_by(`Region Category`) %>% summarize(Count = n())
+
+```
+
+
+## Classified by restaurant format of categories
+Here, we divided it into Bars, Food Trucks, Food Delivery, Food Stores, Juice Bars, Desserts, Events
+```{r}
+# Function to categorize businesses based on a list of categories
+# Input: data - dataframe with business data, category_list - list of categories to search for, category_name - name of category to assign
+# Output: dataframe with businesses assigned to their respective category
+categorize_business <- function(data, category_list, category_name) {
+  categorized_data <- data.frame() # create an empty dataframe to hold categorized businesses
+  for (i in 1:nrow(data)) { # loop through each row of the input data
+    row <- data[i,] # get the current row
+    if (sum(unlist(strsplit(row$categories, ", ")) %in% category_list) > 0) { # if any of the categories in the list are found in the current row, assign it to the specified category
+      row <- row %>% mutate(`Format Category` = category_name) # add a new column `Format Category` to the row and assign it to the specified category
+      categorized_data <- rbind(categorized_data, row) # add the categorized row to the dataframe
+    }
+  }
+  return(categorized_data) # return the dataframe with categorized businesses
+}
+
+# Assign each business to its respective category using the categorize_business function and the list of categories
+businessFL1 = businessFL # copy original dataframe
+categories <- list(
+  list('Beer','Beer Bar','Cocktall Bars', 'Pubs', 'Sports Bars', 'Lounges','Wine Bars'),
+  list('Food Trucks'),
+  list('Food Delivery Services'),
+  list('Grocery','Specialty Food'),
+  list('Juice Bars & Smoothies'),
+  list('Ice Cream & Frozen Yogurt', 'Bakeries'),
+  list('Music Venues','Event Planning & Services','Arts & Entertainment','Nightlife','Venues & Event Spaces','')
+)
+
+businessFL_Bars = categorize_business(businessFL1, categories[[1]], "Bars")
+businessFL_trucks = categorize_business(businessFL1, categories[[2]], "Food Trucks")
+businessFL_delivery = categorize_business(businessFL1, categories[[3]], "Food Delivery")
+businessFL_store = categorize_business(businessFL1, categories[[4]], "Food Stores")
+businessFL_Juice = categorize_business(businessFL1, categories[[5]], "Juice Bars")
+businessFL_desserts = categorize_business(businessFL1, categories[[6]], "Desserts")
+businessFL_events = categorize_business(businessFL1, categories[[7]], "Events")
+
+# Combine all categorized dataframes into one
+b = rbind(businessFL_Bars, businessFL_trucks, businessFL_delivery, businessFL_store, businessFL_Juice, businessFL_desserts, businessFL_events)
+b = b %>% group_by(business_id) %>% filter (!duplicated(business_id)) # remove any duplicates
+b %>% group_by(`Format Category`)%>%summarise(Count = n()) # group by category and count the number of businesses in each category
+
+
+
+```
+
+## Classified by restaurant Special of categories
+Here, we divided it into Seafood, Vegetarian, Vegan, Salad, Gluten-Free
+```{r}
+
+# Function to categorize businesses by special category
+categorize_special_business <- function(data, category, category_name) {
+  categorized_data <- data.frame()
+  for(i in 1:nrow(data)) {
+    a = data[i,]
+    if(sum(c(category) %in% unlist(strsplit(a$categories,", "))) > 0) {
+      a = a %>% mutate(`Special Category` = category_name)
+      categorized_data = rbind(categorized_data, a)
+    }
+  }
+  return(categorized_data)
+}
+
+# Set up the list of special categories to search for
+categories <- list(
+  c("Seafood"),
+  c("Vegan"),
+  c("Vegetarian"),
+  c("Salad"),
+  c("Gluten-Free")
+)
+
+# Use the function to categorize businesses by special category
+businessFL1 = businessFL
+businessFL_special <- data.frame()
+
+for(i in 1:length(categories)) {
+  businessFL_special = rbind(
+    businessFL_special,
+    categorize_special_business(
+      data = businessFL1, 
+      category = categories[[i]], 
+      category_name = toupper(categories[[i]])
+    )
+  )
+}
+
+# Group the businesses by special category and count the number of businesses in each category
+businessFL_special = businessFL_special %>% group_by(business_id) %>% filter(!duplicated(business_id))
+businessFL_special %>% group_by(`Special Category`) %>% summarise(Count = n())
+
+```
+
+## Deal with reviews
+```{r}
+reviews = read.csv("../../data/clean_data/reviews.csv",sep = '\t')
+reviewsFL = reviews %>% filter(state == "FL")
+```
+
+
+```{r}
+# select specific column
+reviewsFL1 = reviewsFL%>%select(business_id,stars_x,review_count,categories,stars_y,useful,funny,cool,date)
+```
+
+```{r}
+# Update date column to only include the first 10 characters
+reviewsFL1 = reviewsFL1 %>% mutate(date=substr(date, 1,10))
+
+# Create a data frame to hold reviews for businesses in the "Events" category
+reviewsFL_events = data.frame()
+
+# Loop through all reviews
+for(i in 1:1082916){
+  is_event = reviewsFL1[i,]
+  
+  # Check if the business associated with the review is in the "Events" category
+  if(sum(c('Music Venues','Event Planning & Services','Arts & Entertainment','Nightlife','Venues & Event Spaces','') %in% unlist(strsplit(is_event$categories,", ")))>0){
+    
+    # If the business is in the "Events" category, add the review to the "Events" data frame
+    reviewsFL_events = rbind(reviewsFL_events,is_event)
+  }
+}
+
+# Create a new column indicating whether the business associated with the review is in the "Events" category
+reviewsFL_events = reviewsFL1 %>% mutate(Events = ifelse(sum(c('Music Venues','Event Planning & Services','Arts & Entertainment','Nightlife','Venues & Event Spaces','') %in% unlist(strsplit(categories,", ")))>0, T, F))
+
+# Filter the reviews data frame to only include reviews for businesses in the "Events" category
+reviewsFL_events = reviewsFL_events %>% filter(Events==T)
+
+```
+
+```{r}
+a1 = a %>%select(business_id, is_open, Business.Status, `Region Category`)
+colnames(a1)[3] = "Business Status"
+r1 = merge(a1, reviewsFL,by="business_id")
+r1 = r1 %>% select(business_id, `Business Status`, `Region Category`, stars_y, date)
+colnames(r1)[4]="Rating"
+r1 = r1 %>% mutate(Year = substr(date,1,4))
+
+```
+
+# Open Region restaurants
+```{r}
+r1sum1 = r1 %>%select(-date)%>%filter(`Business Status` == "Open")
+r1sum1 =r1sum1 %>%group_by(Year, `Region Category`)%>%summarise(Rating = mean(Rating),n=n())
+r1sum1 = r1sum1[-1,]
+r1sum1=r1sum1%>%filter(Year<2022)
+write.csv(r1sum1, "Reviews_Rating_Region_Open.csv")
+```
+
+
+# Subset the datasets with different business status and different region category
+```{r}
+# Select relevant columns and filter for open businesses
+r1sum1 = r1 %>%select(-date)%>%filter(`Business Status` == "Open")
+
+# Group by year and region category, calculate average rating and count of reviews
+r1sum1 =r1sum1 %>%group_by(Year, `Region Category`)%>%summarise(Rating = mean(Rating),n=n())
+
+# Remove first row (no data for year 2012)
+r1sum1 = r1sum1[-1,]
+
+# Filter out data for year 2022 and later
+r1sum1=r1sum1%>%filter(Year<2022)
+
+# Write to CSV file
+write.csv(r1sum1, "Reviews_Rating_Region_Open.csv")
+```
+
+
+# Close Region restaurants
+```{r}
+r1sum1 = r1 %>%select(-date)%>%filter(`Business Status` == "Close")
+r1sum1 =r1sum1 %>%group_by(Year, `Region Category`)%>%summarise(Rating = mean(Rating),n=n())
+r1sum1 = r1sum1[-1,]
+r1sum1 = r1sum1 %>%filter(Year<2022)
+write.csv(r1sum1, "Reviews_Rating_Region_Close.csv")
+```
+
+# Open Format restaurants
+```{r}
+a2 = b %>%select(business_id, is_open, Business.Status, `Format Category`)
+colnames(a2)[3] = "Business Status"
+r2 = merge(a2, reviewsFL,by="business_id")
+r2 = r2 %>% select(business_id, `Business Status`, `Format Category`, stars_y, date)
+colnames(r2)[4]="Rating"
+r2 = r2 %>% mutate(Year = substr(date,1,4))
+r1sum1 = r2 %>%select(-date)%>%filter(`Business Status` == "Open")
+r1sum1 =r1sum1 %>%group_by(Year, `Format Category`)%>%summarise(Rating = mean(Rating),n=n())
+r1sum1 = r1sum1[-1,]
+write.csv(r1sum1, "Reviews_Rating_Format_Open.csv")
+```
+# Close Format restaurants
+```{r}
+r1sum1 = r2 %>%select(-date)%>%filter(`Business Status` == "Open")
+r1sum1 =r1sum1 %>%group_by(Year, `Format Category`)%>%summarise(Rating = mean(Rating),n=n())
+r1sum1 = r1sum1[-1,]
+write.csv(r1sum1, "Reviews_Rating_Format_Close.csv")
+```
+
+# Open Special restaurants
+```{r}
+a3 = c %>%select(business_id, is_open, Business.Status, `Special Category`)
+colnames(a3)[3] = "Business Status"
+r3 = merge(a3, reviewsFL,by="business_id")
+r3 = r3 %>% select(business_id, `Business Status`, `Special Category`, stars_y, date)
+colnames(r3)[4]="Rating"
+r3 = r3 %>% mutate(Year = substr(date,1,4))
+r1sum1 = r3 %>%select(-date)%>%filter(`Business Status` == "Open")
+r1sum1 =r1sum1 %>%group_by(Year, `Special Category`)%>%summarise(Rating = mean(Rating),n=n())
+r1sum1 = r1sum1[-1,]
+write.csv(r1sum1, "Reviews_Rating_Special_Open.csv")
+```
+
+# Close Special restaurants
+```{r}
+r1sum1 = r3 %>%select(-date)%>%filter(`Business Status` == "Close")
+r1sum1 =r1sum1 %>%group_by(Year, `Special Category`)%>%summarise(Rating = mean(Rating),n=n())
+r1sum1 = r1sum1[-1,]
+write.csv(r1sum1, "Reviews_Rating_Special_Close.csv")
+```
+
+
+
+Combine the top photo data with the reviews data
+
+```{r}
+topfig = read.csv("../../data/clean_data/topfig.csv")
+topfig = topfig[,-c(1,2)]
+#topfig = topfig %>%filter(label=="food")
+topfig = topfig %>% group_by(Year,Region.Category,Rating, n, business_id)%>%slice_max(photo_id)
+top1 = topfig %>%group_by(Year, Region.Category,business_id,label)%>%summarise(n=n())
+write.csv(topfig,"topfig1.csv")
+```
+
+
+```{r}
+photo = read.csv("../../data/clean_data/photo.csv")
+photo1 = photo%>%group_by(business_id)%>%summarise(n1=n())
+
+topfig = read.csv("../../data/clean_data/topfig.csv")
+topfig = topfig[,-c(1,2)]
+
+# Merge topfig and photo1 dataframes based on the business_id column
+topfig1 = merge(topfig,photo1,by="business_id")
+
+# Group by Year and Region.Category and calculate the count
+topfigsum = topfig1%>%group_by(Year,Region.Category)%>%summarise(n3 = n())
+
+# For each unique combination of Year, Region.Category, Rating, and n, keep only the row with the maximum value of business_id
+topfig11 = topfig1 %>% group_by(Year,Region.Category,Rating, n)%>%slice_max(business_id)
+
+# Select business_id and photo_id columns from topfig1
+photo1 = topfig1%>%select(business_id,photo_id)
+
+# Merge topfig11 and photo1 dataframes based on the business_id column
+topfig111 = merge(topfig11,photo1,by="business_id")
+
+# Keep only the row with the maximum value of photo_id for each unique combination of Year, Region.Category, Rating, n, and business_id
+topfig111 = topfig111 %>%select(business_id,Year,Region.Category,Rating,n,photo_id)
+topfig111 = topfig111 %>%group_by(Year,Region.Category,Rating,n,business_id)%>%slice_max(photo_id)
+topfig112=distinct(topfig111)
+
+# Keep only the row with the maximum value of photo_id for each unique combination of Year, Region.Category, Rating, n, and business_id
+topfig1 = topfig1 %>% group_by(Year,Region.Category,Rating, n, business_id)%>%slice_max(photo_id,business_id)
+topfig1 = topfig1%>%group_by(Year,Region.Category,Rating, n, business_id)
+
+# Count the number of instances of each unique combination of Year, Region.Category, business_id, and label
+top1 = topfig %>%group_by(Year, Region.Category,business_id,label)%>%summarise(n=n())
+
+# Merge topfig112 and name dataframes based on the business_id column
+name = businessFL %>% select(business_id,name)
+topfig112 = merge(topfig112,name,by="business_id",all.x = T)
+
+# Remove duplicates from topfig112
+topfig112=distinct(topfig112)
+
+# Remove rows with missing values from topfig112
+topfig112=topfig112%>%drop_na()
+
+```
+
